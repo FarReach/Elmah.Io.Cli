@@ -1,11 +1,20 @@
 ﻿using Elmah.Io.Client;
 using Spectre.Console;
 using System.CommandLine;
+using System.Globalization;
 
 namespace Elmah.Io.Cli
 {
     class TailCommand : CommandBase
     {
+        private sealed class RowModel
+        {
+            public string DateTime { get; init; } = "Unknown date";
+            public string Severity { get; init; } = "";
+            public string Message { get; init; } = "";
+            public bool IsNew { get; set; }
+        }
+
         internal static Command Create()
         {
             var apiKeyOption = new Option<string>("--apiKey", description: "An API key with permission to execute the command")
@@ -25,57 +34,114 @@ namespace Elmah.Io.Cli
             logCommand.SetHandler(async (apiKey, logId, host, port) =>
             {
                 var api = Api(apiKey, host, port);
-                var from = DateTimeOffset.UtcNow;
-                var previous = new List<string>();
-                while (true)
+                var fromUtc = DateTimeOffset.UtcNow;
+                var rows = new List<RowModel>(256);
+
+                var seen = new List<string>();
+
+                var table = new Table
                 {
-                    try
+                    Expand = true,
+                };
+                table.Border(TableBorder.Rounded).BorderColor(Color.Grey);
+                table.AddColumn("DateTime");
+                table.AddColumn("Severity");
+                table.AddColumn("Message");
+
+                AnsiConsole.Write(
+                    new Rule("[bold yellow]📡  Tailing log[/]")
+                        .LeftJustified()
+                        .RuleStyle("grey"));
+                AnsiConsole.MarkupLine("[dim]Press [black on white] CTRL [/]+[black on white] C [/] to quit[/]");
+                Console.WriteLine();
+
+                await AnsiConsole
+                    .Live(table)
+                    .StartAsync(async ctx =>
                     {
-                        Thread.Sleep(5000);
-                        var now = DateTimeOffset.UtcNow;
-                        var fiveSecondsBefore = from.AddSeconds(-5);
-                        var result = await api.Messages.GetAllAsync(logId.ToString(), 0, 0, "*", fiveSecondsBefore, now, false);
-                        if (result == null || !result.Total.HasValue || result.Total.Value == 0)
+                        while (true)
                         {
-                            from = now;
-                            previous.Clear();
-                            continue;
+                            try
+                            {
+                                await Task.Delay(5000);
+                                var now = DateTimeOffset.UtcNow;
+                                var fiveSecondsBefore = fromUtc.AddSeconds(-5);
+                                var result = await api.Messages.GetAllAsync(logId.ToString(), 0, 0, "*", fiveSecondsBefore, now, false);
+                                if (result == null || !result.Total.HasValue || result.Total.Value == 0)
+                                {
+                                    fromUtc = now;
+                                    seen.Clear();
+                                    continue;
+                                }
+
+                                int total = result.Total.Value;
+                                int i = 0;
+                                var messages = new List<MessageOverview>();
+                                while (i < total)
+                                {
+                                    var response = await api.Messages.GetAllAsync(logId.ToString(), i / 10, 10, "*", fiveSecondsBefore, now, false);
+                                    messages.AddRange(response.Messages.Where(msg => !seen.Contains(msg.Id)));
+                                    i += response.Messages.Count;
+                                }
+
+                                seen.Clear();
+
+                                if (messages.Count > 0)
+                                {
+                                    UnstarExistingRows(table, rows);
+                                    AppendNewRows(table, rows, messages, seen);
+                                    ctx.Refresh();
+                                }
+
+                                fromUtc = now;
+                            }
+                            catch (Exception e)
+                            {
+                                AnsiConsole.MarkupLineInterpolated($"[red]{e.Message}[/]");
+                            }
                         }
 
-                        int total = result.Total.Value;
-                        int i = 0;
-                        var messages = new List<MessageOverview>();
-                        while (i < total)
-                        {
-                            var response = await api.Messages.GetAllAsync(logId.ToString(), i / 10, 10, "*", fiveSecondsBefore, now, false);
-                            messages.AddRange(response.Messages.Where(msg => !previous.Contains(msg.Id)));
-                            i += response.Messages.Count;
-                        }
-
-                        previous.Clear();
-
-                        foreach (var message in messages.OrderBy(msg => msg.DateTime ?? DateTimeOffset.MinValue))
-                        {
-                            var table = new Table();
-                            table.Border(TableBorder.None);
-                            table.HideHeaders();
-                            table.Expand = true;
-                            table.AddColumns(new TableColumn("") { Width = 17 }, new TableColumn("") { Width = 9 }, new TableColumn(""));
-                            table.AddRow(message.DateTime?.ToLocalTime().ToString() ?? "Unknown date", $"{GetColor(message.Severity)}{message.Severity}[/]", message.Title);
-                            AnsiConsole.Write(table);
-                            previous.Add(message.Id);
-                        }
-
-                        from = now;
-                    }
-                    catch (Exception e)
-                    {
-                        AnsiConsole.MarkupLineInterpolated($"[red]{e.Message}[/]");
-                    }
-                }
+                    });
             }, apiKeyOption, logIdOption, proxyHostOption, proxyPortOption);
 
             return logCommand;
+        }
+
+        private static void UnstarExistingRows(Table table, List<RowModel> rows)
+        {
+            for (int i = 0; i < rows.Count; i++)
+            {
+                var row = rows[i];
+                if (!row.IsNew) continue;
+                row.IsNew = false;
+                table.UpdateCell(i, 2, Markup.Escape(row.Message));
+            }
+        }
+
+        private static void AppendNewRows(
+            Table table,
+            List<RowModel> rows,
+            IEnumerable<MessageOverview> messages,
+            List<string> seen)
+        {
+            foreach (var m in messages.OrderBy(x => x.DateTime ?? DateTimeOffset.MinValue))
+            {
+                var vm = new RowModel
+                {
+                    DateTime = m.DateTime?.ToLocalTime().ToString(CultureInfo.CurrentCulture) ?? "Unknown date",
+                    Severity = m.Severity ?? "Information",
+                    Message = m.Title ?? "(no title)",
+                    IsNew = true
+                };
+
+                var date = $"[dim]{vm.DateTime}[/]";
+                var sev = $"{GetColor(vm.Severity)}{Markup.Escape(vm.Severity)}[/]";
+                var msg = $"⭐ [bold]{Markup.Escape(vm.Message)}[/]";
+
+                table.AddRow(date, sev, msg);
+                rows.Add(vm);
+                seen.Add(m.Id);
+            }
         }
 
         private static string GetColor(string severity)
