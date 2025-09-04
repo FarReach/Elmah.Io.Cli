@@ -57,7 +57,7 @@ namespace Elmah.Io.Cli
 
                     await AnsiConsole
                         .Status()
-                        .Spinner(Spinner.Known.Star)
+                        .Spinner(new BugShotSpinner())
                         .StartAsync("Importing...", async ctx =>
                         {
                             if (logFileType == LogFileType.w3c)

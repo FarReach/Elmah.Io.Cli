@@ -47,7 +47,7 @@ namespace Elmah.Io.Cli
                 var hintsByPackage = new Dictionary<string, List<string>>();
 
                 AnsiConsole.Status()
-                    .Spinner(Spinner.Known.Star)
+                    .Spinner(new BugShotSpinner())
                     .Start("Working...", ctx =>
                     {
                         foreach (var packageFile in filesWithPackages)

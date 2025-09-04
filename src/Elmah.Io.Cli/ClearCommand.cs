@@ -32,12 +32,18 @@ namespace Elmah.Io.Cli
                 var api = Api(apiKey, host, port);
                 try
                 {
-                    await api.Messages.DeleteAllAsync(logId.ToString(), new Client.Search
-                    {
-                        Query = query,
-                        From = from,
-                        To = to,
-                    });
+                    await AnsiConsole
+                        .Status()
+                        .Spinner(new BugShotSpinner())
+                        .StartAsync("Deleting...", async ctx =>
+                        {
+                            await api.Messages.DeleteAllAsync(logId.ToString(), new Client.Search
+                            {
+                                Query = query,
+                                From = from,
+                                To = to,
+                            });
+                        });
 
                     AnsiConsole.MarkupLine("[green]Successfully cleared messages[/]");
                 }

@@ -33,12 +33,6 @@ namespace Elmah.Io.Cli
             };
             logCommand.SetHandler(async (apiKey, logId, host, port) =>
             {
-                var api = Api(apiKey, host, port);
-                var fromUtc = DateTimeOffset.UtcNow;
-                var rows = new List<RowModel>(256);
-
-                var seen = new List<string>();
-
                 var table = new Table
                 {
                     Expand = true,
@@ -59,17 +53,22 @@ namespace Elmah.Io.Cli
                     .Live(table)
                     .StartAsync(async ctx =>
                     {
+                        var api = Api(apiKey, host, port);
+                        var rows = new List<RowModel>(256);
+                        var seen = new List<string>();
+                        var from = DateTimeOffset.UtcNow;
+
                         while (true)
                         {
                             try
                             {
                                 await Task.Delay(5000);
                                 var now = DateTimeOffset.UtcNow;
-                                var fiveSecondsBefore = fromUtc.AddSeconds(-5);
+                                var fiveSecondsBefore = from.AddSeconds(-5);
                                 var result = await api.Messages.GetAllAsync(logId.ToString(), 0, 0, "*", fiveSecondsBefore, now, false);
                                 if (result == null || !result.Total.HasValue || result.Total.Value == 0)
                                 {
-                                    fromUtc = now;
+                                    from = now;
                                     seen.Clear();
                                     continue;
                                 }
@@ -93,7 +92,7 @@ namespace Elmah.Io.Cli
                                     ctx.Refresh();
                                 }
 
-                                fromUtc = now;
+                                from = now;
                             }
                             catch (Exception e)
                             {

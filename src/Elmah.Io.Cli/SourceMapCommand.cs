@@ -44,30 +44,35 @@ namespace Elmah.Io.Cli
                         return;
                     }
 
-                    var sourceMapFileInfo = new FileInfo(sourceMap);
-                    var minifiedJavaScriptFileInfo = new FileInfo(minifiedJavaScript);
+                    await AnsiConsole
+                        .Status()
+                        .Spinner(new BugShotSpinner())
+                        .StartAsync("Uploading...", async ctx =>
+                        {
+                            var sourceMapFileInfo = new FileInfo(sourceMap);
+                            var minifiedJavaScriptFileInfo = new FileInfo(minifiedJavaScript);
 
+                            if (!sourceMapFileInfo.Exists)
+                            {
+                                AnsiConsole.MarkupLine($"[red]SourceMap file not found: {sourceMap}[/]");
+                                return;
+                            }
 
-                    if (!sourceMapFileInfo.Exists)
-                    {
-                        AnsiConsole.MarkupLine($"[red]SourceMap file not found: {sourceMap}[/]");
-                        return;
-                    }
+                            if (!minifiedJavaScriptFileInfo.Exists)
+                            {
+                                AnsiConsole.MarkupLine($"[red]Minified JavaScript file not found: {minifiedJavaScript}[/]");
+                                return;
+                            }
 
-                    if (!minifiedJavaScriptFileInfo.Exists)
-                    {
-                        AnsiConsole.MarkupLine($"[red]Minified JavaScript file not found: {minifiedJavaScript}[/]");
-                        return;
-                    }
+                            using var sourceMapStream = sourceMapFileInfo.OpenRead();
+                            using var scriptStream = minifiedJavaScriptFileInfo.OpenRead();
 
-                    using var sourceMapStream = sourceMapFileInfo.OpenRead();
-                    using var scriptStream = minifiedJavaScriptFileInfo.OpenRead();
-
-                    await api.SourceMaps.CreateOrUpdateAsync(
-                        logId.ToString(),
-                        uri,
-                        new Client.FileParameter(sourceMapStream, sourceMapFileInfo.Name, "application/json"),
-                        new Client.FileParameter(scriptStream, minifiedJavaScriptFileInfo.Name, "text/javascript"));
+                            await api.SourceMaps.CreateOrUpdateAsync(
+                                logId.ToString(),
+                                uri,
+                                new Client.FileParameter(sourceMapStream, sourceMapFileInfo.Name, "application/json"),
+                                new Client.FileParameter(scriptStream, minifiedJavaScriptFileInfo.Name, "text/javascript"));
+                        });
 
                     AnsiConsole.MarkupLine($"[#0da58e]SourceMap successfully uploaded[/]");
                 }
