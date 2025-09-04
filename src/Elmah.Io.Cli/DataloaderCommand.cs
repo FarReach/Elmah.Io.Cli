@@ -16,7 +16,6 @@ namespace Elmah.Io.Cli
         const string DotNetStackTrace = @"Elmah.Io.TestException: This is a test exception that can be safely ignored.
 " + Stack;
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Major Code Smell", "S2589:Boolean expressions should not be gratuitous", Justification = "<Pending>")]
         internal static Command Create()
         {
             var apiKeyOption = new Option<string>("--apiKey", description: "An API key with permission to execute the command")
@@ -50,7 +49,7 @@ namespace Elmah.Io.Cli
                             MaxValue = numberOfMessages,
                         });
 
-                        api.Messages.OnMessageFail += (object? sender, FailEventArgs e) =>
+                        api.Messages.OnMessageFail += (sender, e) =>
                         {
                             failed = true;
                         };
@@ -88,10 +87,10 @@ namespace Elmah.Io.Cli
                                         new Item("CERT_KEYSIZE", "256"),
                                         new Item("CONTENT_LENGTH", "0"),
                                         new Item("QUERY_STRING", "logid=" + logId),
-                                        new Item("REQUEST_METHOD", Method(r)),
+                                        new Item("REQUEST_METHOD", Method(r) ?? ""),
                                         new Item("HTTP_USER_AGENT", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.75 Safari/537.36"),
                                         new Item("HTTP_CF_IPCOUNTRY", "AU"),
-                                        new Item("URL", Url(r)),
+                                        new Item("URL", Url(r) ?? ""),
                                         new Item("HTTP_HOST", "foo.bar"),
                                     ],
                                     Breadcrumbs = Breadcrumbs(r, dateTime),
