@@ -1,4 +1,4 @@
-﻿using System.CommandLine;
+using System.CommandLine;
 using System.Globalization;
 using System.Text;
 using Elmah.Io.Client;
@@ -19,36 +19,35 @@ namespace Elmah.Io.Cli
         {
             var today = DateTimeOffset.UtcNow;
             var aWeekAgo = today.AddDays(-7);
-            var apiKeyOption = new Option<string>("--apiKey", description: "An API key with permission to execute the command")
-            {
-                IsRequired = true
-            };
-            var logIdOption = new Option<Guid>("--logId", "The ID of the log to import messages to")
-            {
-                IsRequired = true
-            };
-            var typeOption = new Option<LogFileType>("--type", "The type of log file to import. Use 'w3c' for W3C Extended Log File Format and 'iis' for IIS Log File Format")
-            {
-                IsRequired = true
-            };
-            var filenameOption = new Option<string>("--filename", "Defines the path and filename of the file to import from. Ex. \" --filename C:\\myDirectory\\log.txt\"")
-            {
-                IsRequired = true
-            };
-            var dateFromOption = new Option<DateTimeOffset?>("--dateFrom", $"Defines the Date from which the logs start. Ex. \" --dateFrom {aWeekAgo:yyyy-MM-dd}\"");
-            var dateToOption = new Option<DateTimeOffset?>("--dateTo", $"Defines the Date from which the logs end. Ex. \" --dateTo {today:yyyy-MM-dd}\"");
+            var apiKeyOption = ApiKeyOption();
+            var logIdOption = new Option<Guid>("--logId") { Description = "The ID of the log to import messages to", Required = true };
+            var typeOption = new Option<LogFileType>("--type") { Description = "The type of log file to import. Use 'w3c' for W3C Extended Log File Format and 'iis' for IIS Log File Format", Required = true };
+            var filenameOption = new Option<string>("--filename") { Description = "Defines the path and filename of the file to import from. Ex. \" --filename C:\\myDirectory\\log.txt\"", Required = true };
+            var dateFromOption = new Option<DateTimeOffset?>("--dateFrom") { Description = $"Defines the Date from which the logs start. Ex. \" --dateFrom {aWeekAgo:yyyy-MM-dd}\"" };
+            var dateToOption = new Option<DateTimeOffset?>("--dateTo") { Description = $"Defines the Date from which the logs end. Ex. \" --dateTo {today:yyyy-MM-dd}\"" };
             var proxyHostOption = ProxyHostOption();
             var proxyPortOption = ProxyPortOption();
             var importCommand = new Command("import", "Import log messages to a specified log")
             {
                 apiKeyOption, logIdOption, typeOption, filenameOption, dateFromOption, dateToOption, proxyHostOption, proxyPortOption
             };
-            importCommand.SetHandler(async (apiKey, logId, logFileType, filename, dateFrom, dateTo, host, port) =>
+            importCommand.SetAction(async (ParseResult result) =>
             {
-                var api = Api(apiKey, host, port);
+                var apiKey = result.GetValue(apiKeyOption);
+                var logId = result.GetValue(logIdOption);
+                var logFileType = result.GetValue(typeOption);
+                var filename = result.GetValue(filenameOption);
+                var dateFrom = result.GetValue(dateFromOption);
+                var dateTo = result.GetValue(dateToOption);
+                var host = result.GetValue(proxyHostOption);
+                var port = result.GetValue(proxyPortOption);
+
+                var resolvedKey = ResolveApiKey(apiKey);
+                if (resolvedKey == null) return;
+                var api = Api(resolvedKey, host, port);
                 try
                 {
-                    var filenameFileInfo = new FileInfo(filename);
+                    var filenameFileInfo = new FileInfo(filename!);
                     if (!filenameFileInfo.Exists)
                     {
                         AnsiConsole.MarkupLine($"[red]Input file not found: {filename}[/]");
@@ -62,11 +61,11 @@ namespace Elmah.Io.Cli
                         {
                             if (logFileType == LogFileType.w3c)
                             {
-                                await ImportW3CFile(api, filename, logId, dateFrom, dateTo);
+                                await ImportW3CFile(api, filename!, logId, dateFrom, dateTo);
                             }
                             else if (logFileType == LogFileType.iis)
                             {
-                                await ImportIISFile(api, filename, logId, dateFrom, dateTo);
+                                await ImportIISFile(api, filename!, logId, dateFrom, dateTo);
                             }
                             else
                             {
@@ -78,7 +77,7 @@ namespace Elmah.Io.Cli
                 {
                     AnsiConsole.MarkupLineInterpolated($"[red]{e.Message}[/]");
                 }
-            }, apiKeyOption, logIdOption, typeOption, filenameOption, dateFromOption, dateToOption, proxyHostOption, proxyPortOption);
+            });
 
             return importCommand;
         }
@@ -209,9 +208,9 @@ namespace Elmah.Io.Cli
             using var fileStream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
             using var streamReader = new StreamReader(fileStream);
             var messages = new List<CreateMessage>();
-            while (!streamReader.EndOfStream)
+            string? line;
+            while ((line = await streamReader.ReadLineAsync()) != null)
             {
-                var line = await streamReader.ReadLineAsync();
                 if (string.IsNullOrWhiteSpace(line)) continue;
 
                 var columns = line.Split(',');

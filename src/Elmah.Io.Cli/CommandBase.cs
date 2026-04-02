@@ -1,4 +1,4 @@
-﻿using Elmah.Io.Client;
+using Elmah.Io.Client;
 using Spectre.Console;
 using System.CommandLine;
 using System.Net;
@@ -28,8 +28,22 @@ namespace Elmah.Io.Cli
             return api;
         }
 
-        protected static Option<string?> ProxyHostOption() => new("--proxyHost", "A hostname or IP for a proxy to use to call elmah.io");
-        protected static Option<int?> ProxyPortOption() => new("--proxyPort", "A port number for a proxy to use to call elmah.io");
+        protected static Option<string?> ApiKeyOption() =>
+            new("--apiKey") { Description = "An API key with permission to execute the command. If omitted, the key stored via 'elmahio login' is used." };
+
+        protected static string? ResolveApiKey(string? provided)
+        {
+            var key = CredentialStore.GetApiKey(provided);
+            if (key == null)
+                AnsiConsole.MarkupLine("[red]No API key provided. Pass --apiKey or run 'elmahio login' first.[/]");
+            return key;
+        }
+
+        protected static Option<bool> JsonOption() =>
+            new("--json") { Description = "Output results as JSON instead of formatted text" };
+
+        protected static Option<string?> ProxyHostOption() => new("--proxyHost") { Description = "A hostname or IP for a proxy to use to call elmah.io" };
+        protected static Option<int?> ProxyPortOption() => new("--proxyPort") { Description = "A port number for a proxy to use to call elmah.io" };
 
         private static void Messages_OnMessageFail(object? sender, FailEventArgs e)
         {
