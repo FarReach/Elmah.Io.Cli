@@ -1,4 +1,4 @@
-﻿using Spectre.Console;
+using Spectre.Console;
 using System.CommandLine;
 
 namespace Elmah.Io.Cli
@@ -7,29 +7,30 @@ namespace Elmah.Io.Cli
     {
         internal static Command Create()
         {
-            var apiKeyOption = new Option<string>("--apiKey", description: "An API key with permission to execute the command")
-            {
-                IsRequired = true,
-            };
-            var logIdOption = new Option<Guid>("--logId", "The log ID of the log to clear messages")
-            {
-                IsRequired = true
-            };
-            var queryOption = new Option<string>("--query", "Clear messages matching this query (use * for all messages)")
-            {
-                IsRequired = true
-            };
-            var fromOption = new Option<DateTimeOffset?>("--from", "Optional date and time to clear messages from");
-            var toOption = new Option<DateTimeOffset?>("--to", "Optional date and time to clear messages to");
+            var apiKeyOption = ApiKeyOption();
+            var logIdOption = new Option<Guid>("--logId") { Description = "The log ID of the log to clear messages", Required = true };
+            var queryOption = new Option<string>("--query") { Description = "Clear messages matching this query (use * for all messages)", Required = true };
+            var fromOption = new Option<DateTimeOffset?>("--from") { Description = "Optional date and time to clear messages from" };
+            var toOption = new Option<DateTimeOffset?>("--to") { Description = "Optional date and time to clear messages to" };
             var proxyHostOption = ProxyHostOption();
             var proxyPortOption = ProxyPortOption();
             var clearCommand = new Command("clear", "Delete one or more messages from a log")
             {
                 apiKeyOption, logIdOption, queryOption, fromOption, toOption, proxyHostOption, proxyPortOption
             };
-            clearCommand.SetHandler(async (apiKey, logId, query, from, to, host, port) =>
+            clearCommand.SetAction(async (ParseResult result) =>
             {
-                var api = Api(apiKey, host, port);
+                var apiKey = result.GetValue(apiKeyOption);
+                var logId = result.GetValue(logIdOption);
+                var query = result.GetValue(queryOption);
+                var from = result.GetValue(fromOption);
+                var to = result.GetValue(toOption);
+                var host = result.GetValue(proxyHostOption);
+                var port = result.GetValue(proxyPortOption);
+
+                var resolvedKey = ResolveApiKey(apiKey);
+                if (resolvedKey == null) return;
+                var api = Api(resolvedKey, host, port);
                 try
                 {
                     await AnsiConsole
@@ -51,7 +52,7 @@ namespace Elmah.Io.Cli
                 {
                     AnsiConsole.MarkupLineInterpolated($"[red]{e.Message}[/]");
                 }
-            }, apiKeyOption, logIdOption, queryOption, fromOption, toOption, proxyHostOption, proxyPortOption);
+            });
 
             return clearCommand;
         }

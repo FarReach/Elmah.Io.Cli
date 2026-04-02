@@ -1,4 +1,4 @@
-﻿using Elmah.Io.Client;
+using Elmah.Io.Client;
 using Newtonsoft.Json;
 using Spectre.Console;
 using System.CommandLine;
@@ -18,23 +18,24 @@ namespace Elmah.Io.Cli
 
         internal static Command Create()
         {
-            var apiKeyOption = new Option<string>("--apiKey", description: "An API key with permission to execute the command")
-            {
-                IsRequired = true,
-            };
-            var logIdOption = new Option<Guid>("--logId", "The log ID of the log to import messages into")
-            {
-                IsRequired = true
-            };
+            var apiKeyOption = ApiKeyOption();
+            var logIdOption = new Option<Guid>("--logId") { Description = "The log ID of the log to import messages into", Required = true };
             var proxyHostOption = ProxyHostOption();
             var proxyPortOption = ProxyPortOption();
             var dataloaderCommand = new Command("dataloader", "Load 50 log messages into the specified log")
             {
                 apiKeyOption, logIdOption, proxyHostOption, proxyPortOption
             };
-            dataloaderCommand.SetHandler(async (apiKey, logId, host, port) =>
+            dataloaderCommand.SetAction(async (ParseResult result) =>
             {
-                var api = Api(apiKey, host, port);
+                var apiKey = result.GetValue(apiKeyOption);
+                var logId = result.GetValue(logIdOption);
+                var host = result.GetValue(proxyHostOption);
+                var port = result.GetValue(proxyPortOption);
+
+                var resolvedKey = ResolveApiKey(apiKey);
+                if (resolvedKey == null) return;
+                var api = Api(resolvedKey, host, port);
                 var random = new Random();
                 var yesterday = DateTimeOffset.UtcNow.AddDays(-1);
                 var failed = false;
@@ -123,7 +124,7 @@ namespace Elmah.Io.Cli
                     });
 
                 if (!failed) AnsiConsole.MarkupLine($"[green]Successfully loaded [/][grey]{numberOfMessages}[/][green] log messages[/]");
-            }, apiKeyOption, logIdOption, proxyHostOption, proxyPortOption);
+            });
 
             return dataloaderCommand;
         }

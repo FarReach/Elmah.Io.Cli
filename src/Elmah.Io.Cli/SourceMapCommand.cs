@@ -1,4 +1,4 @@
-﻿using Spectre.Console;
+using Spectre.Console;
 using System.CommandLine;
 
 namespace Elmah.Io.Cli
@@ -7,35 +7,30 @@ namespace Elmah.Io.Cli
     {
         internal static Command Create()
         {
-            var apiKeyOption = new Option<string>("--apiKey", description: "An API key with permission to execute the command")
-            {
-                IsRequired = true,
-            };
-            var logIdOption = new Option<Guid>("--logId", "The ID of the log which should contain the minified JavaScript and source map")
-            {
-                IsRequired = true,
-            };
-            var pathOption = new Option<string>("--path", "An URL to the online minified JavaScript file")
-            {
-                IsRequired = true,
-            };
-            var sourceMapOption = new Option<string>("--sourceMap", "The source map file. Only files with an extension of .map and content type of application/json will be accepted")
-            {
-                IsRequired = true,
-            };
-            var minifiedJavaScriptOption = new Option<string>("--minifiedJavaScript", "The minified JavaScript file. Only files with an extension of .js and content type of text/javascript will be accepted")
-            {
-                IsRequired = true,
-            };
+            var apiKeyOption = ApiKeyOption();
+            var logIdOption = new Option<Guid>("--logId") { Description = "The ID of the log which should contain the minified JavaScript and source map", Required = true };
+            var pathOption = new Option<string>("--path") { Description = "An URL to the online minified JavaScript file", Required = true };
+            var sourceMapOption = new Option<string>("--sourceMap") { Description = "The source map file. Only files with an extension of .map and content type of application/json will be accepted", Required = true };
+            var minifiedJavaScriptOption = new Option<string>("--minifiedJavaScript") { Description = "The minified JavaScript file. Only files with an extension of .js and content type of text/javascript will be accepted", Required = true };
             var proxyHostOption = ProxyHostOption();
             var proxyPortOption = ProxyPortOption();
             var sourceMapCommand = new Command("sourcemap", "Upload a source map and minified JavaScript")
             {
                 apiKeyOption, logIdOption, pathOption, sourceMapOption, minifiedJavaScriptOption, proxyHostOption, proxyPortOption
             };
-            sourceMapCommand.SetHandler(async (apiKey, logId, path, sourceMap, minifiedJavaScript, host, port) =>
+            sourceMapCommand.SetAction(async (ParseResult result) =>
             {
-                var api = Api(apiKey, host, port);
+                var apiKey = result.GetValue(apiKeyOption);
+                var logId = result.GetValue(logIdOption);
+                var path = result.GetValue(pathOption);
+                var sourceMap = result.GetValue(sourceMapOption);
+                var minifiedJavaScript = result.GetValue(minifiedJavaScriptOption);
+                var host = result.GetValue(proxyHostOption);
+                var port = result.GetValue(proxyPortOption);
+
+                var resolvedKey = ResolveApiKey(apiKey);
+                if (resolvedKey == null) return;
+                var api = Api(resolvedKey, host, port);
                 try
                 {
                     if (!Uri.TryCreate(path, UriKind.RelativeOrAbsolute, out Uri? uri))
@@ -49,8 +44,8 @@ namespace Elmah.Io.Cli
                         .Spinner(new BugShotSpinner())
                         .StartAsync("Uploading...", async ctx =>
                         {
-                            var sourceMapFileInfo = new FileInfo(sourceMap);
-                            var minifiedJavaScriptFileInfo = new FileInfo(minifiedJavaScript);
+                            var sourceMapFileInfo = new FileInfo(sourceMap!);
+                            var minifiedJavaScriptFileInfo = new FileInfo(minifiedJavaScript!);
 
                             if (!sourceMapFileInfo.Exists)
                             {
@@ -80,7 +75,7 @@ namespace Elmah.Io.Cli
                 {
                     AnsiConsole.MarkupLineInterpolated($"[red]{e.Message}[/]");
                 }
-            }, apiKeyOption, logIdOption, pathOption, sourceMapOption, minifiedJavaScriptOption, proxyHostOption, proxyPortOption);
+            });
 
             return sourceMapCommand;
         }

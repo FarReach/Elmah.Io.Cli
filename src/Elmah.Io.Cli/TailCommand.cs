@@ -1,4 +1,4 @@
-﻿using Elmah.Io.Client;
+using Elmah.Io.Client;
 using Spectre.Console;
 using System.CommandLine;
 using System.Globalization;
@@ -17,22 +17,23 @@ namespace Elmah.Io.Cli
 
         internal static Command Create()
         {
-            var apiKeyOption = new Option<string>("--apiKey", description: "An API key with permission to execute the command")
-            {
-                IsRequired = true,
-            };
-            var logIdOption = new Option<Guid>("--logId", "The ID of the log to send the log message to")
-            {
-                IsRequired = true
-            };
+            var apiKeyOption = ApiKeyOption();
+            var logIdOption = new Option<Guid>("--logId") { Description = "The ID of the log to send the log message to", Required = true };
             var proxyHostOption = ProxyHostOption();
             var proxyPortOption = ProxyPortOption();
             var logCommand = new Command("tail", "Tail log messages from a specified log")
             {
                 apiKeyOption, logIdOption, proxyHostOption, proxyPortOption
             };
-            logCommand.SetHandler(async (apiKey, logId, host, port) =>
+            logCommand.SetAction(async (ParseResult result) =>
             {
+                var apiKey = result.GetValue(apiKeyOption);
+                var logId = result.GetValue(logIdOption);
+                var host = result.GetValue(proxyHostOption);
+                var port = result.GetValue(proxyPortOption);
+
+                var resolvedKey = ResolveApiKey(apiKey);
+                if (resolvedKey == null) return;
                 var table = new Table
                 {
                     Expand = true,
@@ -53,7 +54,7 @@ namespace Elmah.Io.Cli
                     .Live(table)
                     .StartAsync(async ctx =>
                     {
-                        var api = Api(apiKey, host, port);
+                        var api = Api(resolvedKey, host, port);
                         var rows = new List<RowModel>(256);
                         var seen = new List<string>();
                         var from = DateTimeOffset.UtcNow;
@@ -65,15 +66,15 @@ namespace Elmah.Io.Cli
                                 await Task.Delay(5000);
                                 var now = DateTimeOffset.UtcNow;
                                 var fiveSecondsBefore = from.AddSeconds(-5);
-                                var result = await api.Messages.GetAllAsync(logId.ToString(), 0, 0, "*", fiveSecondsBefore, now, false);
-                                if (result == null || !result.Total.HasValue || result.Total.Value == 0)
+                                var pollResult = await api.Messages.GetAllAsync(logId.ToString(), 0, 0, "*", fiveSecondsBefore, now, false);
+                                if (pollResult == null || !pollResult.Total.HasValue || pollResult.Total.Value == 0)
                                 {
                                     from = now;
                                     seen.Clear();
                                     continue;
                                 }
 
-                                int total = result.Total.Value;
+                                int total = pollResult.Total.Value;
                                 int i = 0;
                                 var messages = new List<MessageOverview>();
                                 while (i < total)
@@ -101,7 +102,7 @@ namespace Elmah.Io.Cli
                         }
 
                     });
-            }, apiKeyOption, logIdOption, proxyHostOption, proxyPortOption);
+            });
 
             return logCommand;
         }
