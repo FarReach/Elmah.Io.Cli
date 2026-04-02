@@ -5,6 +5,11 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
 
 jobs:
   build:
@@ -48,7 +53,7 @@ jobs:
         rm -r "elmahio-win-x64" "elmahio-linux-x64" "elmahio-osx-x64" "elmahio-osx-arm64"
 
     - name: Create Release
-      if: ${{ github.event_name == 'push' }}
+      if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
       uses: softprops/action-gh-release@v2
       with:
         files: |
@@ -64,7 +69,7 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Push to GitHub Packages
-      if: ${{ github.event_name == 'push' }}
+      if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
       run: |
         dotnet nuget add source \
           --username jasonnissen \
