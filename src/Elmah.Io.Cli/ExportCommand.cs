@@ -12,6 +12,16 @@ namespace Elmah.Io.Cli
     {
         internal static Command Create()
         {
+            return BuildCommand(deprecated: true);
+        }
+
+        internal static Command CreateSubcommand()
+        {
+            return BuildCommand(deprecated: false);
+        }
+
+        private static Command BuildCommand(bool deprecated)
+        {
             var today = DateTime.Today;
             var aWeekAgo = today.AddDays(-7);
             var apiKeyOption = ApiKeyOption();
@@ -30,6 +40,9 @@ namespace Elmah.Io.Cli
             };
             exportCommand.SetAction(async (ParseResult result) =>
             {
+                if (deprecated)
+                    AnsiConsole.MarkupLine("[yellow]Warning:[/] 'elmahio export' is deprecated. Use 'elmahio logs export' instead.");
+
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);
                 var dateFrom = result.GetValue(dateFromOption);

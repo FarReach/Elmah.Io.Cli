@@ -7,6 +7,16 @@ namespace Elmah.Io.Cli
     {
         internal static Command Create()
         {
+            return BuildCommand(deprecated: true);
+        }
+
+        internal static Command CreateSubcommand()
+        {
+            return BuildCommand(deprecated: false);
+        }
+
+        private static Command BuildCommand(bool deprecated)
+        {
             var apiKeyOption = ApiKeyOption();
             var logIdOption = new Option<Guid>("--logId") { Description = "The ID of the log which should contain the minified JavaScript and source map", Required = true };
             var pathOption = new Option<string>("--path") { Description = "An URL to the online minified JavaScript file", Required = true };
@@ -20,6 +30,9 @@ namespace Elmah.Io.Cli
             };
             sourceMapCommand.SetAction(async (ParseResult result) =>
             {
+                if (deprecated)
+                    AnsiConsole.MarkupLine("[yellow]Warning:[/] 'elmahio sourcemap' is deprecated. Use 'elmahio logs sourcemap' instead.");
+
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);
                 var path = result.GetValue(pathOption);

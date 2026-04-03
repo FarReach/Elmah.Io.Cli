@@ -8,6 +8,16 @@ namespace Elmah.Io.Cli
     {
         internal static Command Create()
         {
+            return BuildCommand(deprecated: true);
+        }
+
+        internal static Command CreateSubcommand()
+        {
+            return BuildCommand(deprecated: false);
+        }
+
+        private static Command BuildCommand(bool deprecated)
+        {
             var apiKeyOption = ApiKeyOption();
             var logIdOption = new Option<Guid>("--logId") { Description = "The ID of the log to send the log message to", Required = true };
             var applicationOption = new Option<string>("--application") { Description = "Used to identify which application logged this message. You can use this if you have multiple applications and services logging to the same log" };
@@ -37,6 +47,9 @@ namespace Elmah.Io.Cli
             };
             logCommand.SetAction(async (ParseResult result) =>
             {
+                if (deprecated)
+                    AnsiConsole.MarkupLine("[yellow]Warning:[/] 'elmahio log' is deprecated. Use 'elmahio messages log' instead.");
+
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);
                 var application = result.GetValue(applicationOption);

@@ -7,6 +7,16 @@ namespace Elmah.Io.Cli
     {
         internal static Command Create()
         {
+            return BuildCommand(deprecated: true);
+        }
+
+        internal static Command CreateSubcommand()
+        {
+            return BuildCommand(deprecated: false);
+        }
+
+        private static Command BuildCommand(bool deprecated)
+        {
             var apiKeyOption = ApiKeyOption();
             var logIdOption = new Option<Guid>("--logId") { Description = "The log ID of the log to clear messages", Required = true };
             var queryOption = new Option<string>("--query") { Description = "Clear messages matching this query (use * for all messages)", Required = true };
@@ -20,6 +30,9 @@ namespace Elmah.Io.Cli
             };
             clearCommand.SetAction(async (ParseResult result) =>
             {
+                if (deprecated)
+                    AnsiConsole.MarkupLine("[yellow]Warning:[/] 'elmahio clear' is deprecated. Use 'elmahio logs clear' instead.");
+
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);
                 var query = result.GetValue(queryOption);
