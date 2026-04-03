@@ -24,8 +24,6 @@ namespace Elmah.Io.Cli
             rootCommand.Add(LogCommand.Create());
             rootCommand.Add(LogsCommand.Create());
             rootCommand.Add(MessagesCommand.Create());
-            rootCommand.Add(OrganizationsCommand.Create());
-            rootCommand.Add(ProfileCommand.Create());
             rootCommand.Add(SourceMapCommand.Create());
             rootCommand.Add(TailCommand.Create());
 

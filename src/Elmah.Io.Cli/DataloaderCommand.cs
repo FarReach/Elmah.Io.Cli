@@ -18,6 +18,16 @@ namespace Elmah.Io.Cli
 
         internal static Command Create()
         {
+            return BuildCommand(deprecated: true);
+        }
+
+        internal static Command CreateSubcommand()
+        {
+            return BuildCommand(deprecated: false);
+        }
+
+        private static Command BuildCommand(bool deprecated)
+        {
             var apiKeyOption = ApiKeyOption();
             var logIdOption = new Option<Guid>("--logId") { Description = "The log ID of the log to import messages into", Required = true };
             var proxyHostOption = ProxyHostOption();
@@ -28,6 +38,9 @@ namespace Elmah.Io.Cli
             };
             dataloaderCommand.SetAction(async (ParseResult result) =>
             {
+                if (deprecated)
+                    AnsiConsole.MarkupLine("[yellow]Warning:[/] 'elmahio dataloader' is deprecated. Use 'elmahio logs dataloader' instead.");
+
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);
                 var host = result.GetValue(proxyHostOption);

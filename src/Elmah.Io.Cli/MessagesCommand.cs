@@ -15,6 +15,7 @@ namespace Elmah.Io.Cli
             messagesCommand.Add(CreateGetSubcommand());
             messagesCommand.Add(CreateListRecentSubcommand());
             messagesCommand.Add(CreateListFrequentSubcommand());
+            messagesCommand.Add(LogCommand.CreateSubcommand());
 
             return messagesCommand;
         }

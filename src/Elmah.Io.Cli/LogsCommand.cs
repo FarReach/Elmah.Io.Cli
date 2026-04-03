@@ -12,6 +12,12 @@ namespace Elmah.Io.Cli
 
             logsCommand.Add(CreateListSubcommand());
             logsCommand.Add(CreateGetSubcommand());
+            logsCommand.Add(ClearCommand.CreateSubcommand());
+            logsCommand.Add(DataloaderCommand.CreateSubcommand());
+            logsCommand.Add(ExportCommand.CreateSubcommand());
+            logsCommand.Add(ImportCommand.CreateSubcommand());
+            logsCommand.Add(SourceMapCommand.CreateSubcommand());
+            logsCommand.Add(TailCommand.CreateSubcommand());
 
             return logsCommand;
         }

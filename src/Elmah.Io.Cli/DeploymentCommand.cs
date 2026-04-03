@@ -22,6 +22,8 @@ namespace Elmah.Io.Cli
             };
             deploymentCommand.SetAction(async (ParseResult result) =>
             {
+                AnsiConsole.MarkupLine("[yellow]Warning:[/] 'elmahio deployment' is deprecated. Use 'elmahio deployments create' instead.");
+
                 var apiKey = result.GetValue(apiKeyOption);
                 var version = result.GetValue(versionOption);
                 var created = result.GetValue(createdOption);
@@ -32,27 +34,7 @@ namespace Elmah.Io.Cli
                 var host = result.GetValue(proxyHostOption);
                 var port = result.GetValue(proxyPortOption);
 
-                var resolvedKey = ResolveApiKey(apiKey);
-                if (resolvedKey == null) return;
-                var api = Api(resolvedKey, host, port);
-                try
-                {
-                    await api.Deployments.CreateAsync(new Client.CreateDeployment
-                    {
-                        Version = version,
-                        Created = created,
-                        Description = string.IsNullOrWhiteSpace(description) ? null : description,
-                        UserName = string.IsNullOrWhiteSpace(userName) ? null : userName,
-                        UserEmail = string.IsNullOrWhiteSpace(userEmail) ? null : userEmail,
-                        LogId = logId.HasValue ? logId.Value.ToString() : null,
-                    });
-
-                    AnsiConsole.MarkupLine($"[#0da58e]Deployment successfully created[/]");
-                }
-                catch (Exception e)
-                {
-                    AnsiConsole.MarkupLineInterpolated($"[red]{e.Message}[/]");
-                }
+                await DeploymentsCommand.ExecuteCreateAsync(apiKey, version, created, description, userName, userEmail, logId, host, port);
             });
 
             return deploymentCommand;
