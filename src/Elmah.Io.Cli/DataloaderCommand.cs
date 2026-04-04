@@ -1,4 +1,4 @@
-﻿using Elmah.Io.Client;
+using Elmah.Io.Client;
 using Newtonsoft.Json;
 using Spectre.Console;
 using System.CommandLine;
@@ -18,23 +18,37 @@ namespace Elmah.Io.Cli
 
         internal static Command Create()
         {
-            var apiKeyOption = new Option<string>("--apiKey", description: "An API key with permission to execute the command")
-            {
-                IsRequired = true,
-            };
-            var logIdOption = new Option<Guid>("--logId", "The log ID of the log to import messages into")
-            {
-                IsRequired = true
-            };
+            return BuildCommand(deprecated: true);
+        }
+
+        internal static Command CreateSubcommand()
+        {
+            return BuildCommand(deprecated: false);
+        }
+
+        private static Command BuildCommand(bool deprecated)
+        {
+            var apiKeyOption = ApiKeyOption();
+            var logIdOption = new Option<Guid>("--logId") { Description = "The log ID of the log to import messages into", Required = true };
             var proxyHostOption = ProxyHostOption();
             var proxyPortOption = ProxyPortOption();
-            var dataloaderCommand = new Command("dataloader", "Load 50 log messages into the specified log")
+            var dataloaderCommand = new Command("dataloader", $"{(deprecated ? "(deprecated) " : "")}Load 50 log messages into the specified log")
             {
                 apiKeyOption, logIdOption, proxyHostOption, proxyPortOption
             };
-            dataloaderCommand.SetHandler(async (apiKey, logId, host, port) =>
+            dataloaderCommand.SetAction(async result =>
             {
-                var api = Api(apiKey, host, port);
+                if (deprecated)
+                    AnsiConsole.MarkupLine("[yellow]:light_bulb:  Warning:[/] 'elmahio dataloader' is deprecated. Use 'elmahio logs dataloader' instead.");
+
+                var apiKey = result.GetValue(apiKeyOption);
+                var logId = result.GetValue(logIdOption);
+                var host = result.GetValue(proxyHostOption);
+                var port = result.GetValue(proxyPortOption);
+
+                var resolvedKey = ResolveApiKey(apiKey);
+                if (resolvedKey == null) return;
+                var api = Api(resolvedKey, host, port);
                 var random = new Random();
                 var yesterday = DateTimeOffset.UtcNow.AddDays(-1);
                 var failed = false;
@@ -123,7 +137,7 @@ namespace Elmah.Io.Cli
                     });
 
                 if (!failed) AnsiConsole.MarkupLine($"[green]Successfully loaded [/][grey]{numberOfMessages}[/][green] log messages[/]");
-            }, apiKeyOption, logIdOption, proxyHostOption, proxyPortOption);
+            });
 
             return dataloaderCommand;
         }

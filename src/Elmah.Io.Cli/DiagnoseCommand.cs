@@ -1,4 +1,4 @@
-﻿using Elmah.Io.Cli.Diagnose;
+using Elmah.Io.Cli.Diagnose;
 using GuerrillaNtp;
 using Spectre.Console;
 using System.CommandLine;
@@ -12,16 +12,19 @@ namespace Elmah.Io.Cli
 
         internal static Command Create()
         {
-            var directoryOption = new Option<string>("--directory", () => Directory.GetCurrentDirectory(), "The root directory to check");
-            var verboseOption = new Option<bool>("--verbose", () => false, "Output verbose diagnostics to help debug problems");
+            var directoryOption = new Option<string>("--directory") { Description = "The root directory to check", DefaultValueFactory = _ => Directory.GetCurrentDirectory() };
+            var verboseOption = new Option<bool>("--verbose") { Description = "Output verbose diagnostics to help debug problems", DefaultValueFactory = _ => false };
             var diagnoseCommand = new Command("diagnose", "Diagnose potential problems with an elmah.io installation")
             {
                 directoryOption,
                 verboseOption,
             };
-            diagnoseCommand.SetHandler((directory, verbose) =>
+            diagnoseCommand.SetAction(result =>
             {
-                var rootDir = new DirectoryInfo(directory);
+                var directory = result.GetValue(directoryOption);
+                var verbose = result.GetValue(verboseOption);
+
+                var rootDir = new DirectoryInfo(directory!);
                 if (!rootDir.Exists)
                 {
                     AnsiConsole.MarkupLine($"[red]Unknown directory: [/][grey]{directory ?? "Not specified"}[/]");
@@ -117,7 +120,7 @@ namespace Elmah.Io.Cli
                     }
                     AnsiConsole.Write(table);
                 }
-            }, directoryOption, verboseOption);
+            });
 
             return diagnoseCommand;
         }
