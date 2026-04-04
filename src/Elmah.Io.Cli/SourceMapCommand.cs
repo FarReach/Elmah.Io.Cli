@@ -24,14 +24,14 @@ namespace Elmah.Io.Cli
             var minifiedJavaScriptOption = new Option<string>("--minifiedJavaScript") { Description = "The minified JavaScript file. Only files with an extension of .js and content type of text/javascript will be accepted", Required = true };
             var proxyHostOption = ProxyHostOption();
             var proxyPortOption = ProxyPortOption();
-            var sourceMapCommand = new Command("sourcemap", "Upload a source map and minified JavaScript")
+            var sourceMapCommand = new Command("sourcemap", $"{(deprecated ? "(deprecated) " : "")}Upload a source map and minified JavaScript")
             {
                 apiKeyOption, logIdOption, pathOption, sourceMapOption, minifiedJavaScriptOption, proxyHostOption, proxyPortOption
             };
-            sourceMapCommand.SetAction(async (ParseResult result) =>
+            sourceMapCommand.SetAction(async result =>
             {
                 if (deprecated)
-                    AnsiConsole.MarkupLine("[yellow]Warning:[/] 'elmahio sourcemap' is deprecated. Use 'elmahio logs sourcemap' instead.");
+                    AnsiConsole.MarkupLine("[yellow]:warning:  Warning:[/] 'elmahio sourcemap' is deprecated. Use 'elmahio logs sourcemap' instead.");
 
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);
@@ -52,26 +52,26 @@ namespace Elmah.Io.Cli
                         return;
                     }
 
+                    var sourceMapFileInfo = new FileInfo(sourceMap!);
+                    var minifiedJavaScriptFileInfo = new FileInfo(minifiedJavaScript!);
+
+                    if (!sourceMapFileInfo.Exists)
+                    {
+                        AnsiConsole.MarkupLine($"[red]SourceMap file not found: {sourceMap}[/]");
+                        return;
+                    }
+
+                    if (!minifiedJavaScriptFileInfo.Exists)
+                    {
+                        AnsiConsole.MarkupLine($"[red]Minified JavaScript file not found: {minifiedJavaScript}[/]");
+                        return;
+                    }
+
                     await AnsiConsole
                         .Status()
                         .Spinner(new BugShotSpinner())
                         .StartAsync("Uploading...", async ctx =>
                         {
-                            var sourceMapFileInfo = new FileInfo(sourceMap!);
-                            var minifiedJavaScriptFileInfo = new FileInfo(minifiedJavaScript!);
-
-                            if (!sourceMapFileInfo.Exists)
-                            {
-                                AnsiConsole.MarkupLine($"[red]SourceMap file not found: {sourceMap}[/]");
-                                return;
-                            }
-
-                            if (!minifiedJavaScriptFileInfo.Exists)
-                            {
-                                AnsiConsole.MarkupLine($"[red]Minified JavaScript file not found: {minifiedJavaScript}[/]");
-                                return;
-                            }
-
                             using var sourceMapStream = sourceMapFileInfo.OpenRead();
                             using var scriptStream = minifiedJavaScriptFileInfo.OpenRead();
 

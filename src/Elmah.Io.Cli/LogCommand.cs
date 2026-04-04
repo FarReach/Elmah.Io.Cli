@@ -39,16 +39,16 @@ namespace Elmah.Io.Cli
             var proxyHostOption = ProxyHostOption();
             var proxyPortOption = ProxyPortOption();
 
-            var logCommand = new Command("log", "Log a message to the specified log")
+            var logCommand = new Command("log", $"{(deprecated ? "(deprecated) " : "")}Log a message to the specified log")
             {
                 apiKeyOption, logIdOption, applicationOption, detailOption, hostnameOption, titleOption, titleTemplateOption, sourceOption, statusCodeOption,
                 dateTimeOption, typeOption, userOption, severityOption, urlOption, methodOption, versionOption, correlationIdOption, categoryOption,
                 proxyHostOption, proxyPortOption,
             };
-            logCommand.SetAction(async (ParseResult result) =>
+            logCommand.SetAction(async result =>
             {
                 if (deprecated)
-                    AnsiConsole.MarkupLine("[yellow]Warning:[/] 'elmahio log' is deprecated. Use 'elmahio messages log' instead.");
+                    AnsiConsole.MarkupLine("[yellow]:warning:  Warning:[/] 'elmahio log' is deprecated. Use 'elmahio messages log' instead.");
 
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);
@@ -98,6 +98,7 @@ namespace Elmah.Io.Cli
                     if (message != null)
                     {
                         AnsiConsole.MarkupLine($"[#0da58e]Message successfully logged to [/][grey]https://app.elmah.io/errorlog/search?logId={logId}&hidden=true&expand=true&filters=id:%22{message.Id}%22#searchTab[/]");
+                        AnsiConsole.MarkupLine($"Fetch by running the 'elmahio messages get --logId {logId} --messageId {message.Id}' command");
                     }
                     else
                     {

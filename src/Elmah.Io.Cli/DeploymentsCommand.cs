@@ -1,5 +1,6 @@
 using Newtonsoft.Json;
 using Spectre.Console;
+using Spectre.Console.Json;
 using System.CommandLine;
 using System.Globalization;
 
@@ -9,10 +10,11 @@ namespace Elmah.Io.Cli
     {
         internal static Command Create()
         {
-            var deploymentsCommand = new Command("deployments", "Work with deployments");
-
-            deploymentsCommand.Add(CreateListSubcommand());
-            deploymentsCommand.Add(CreateCreateSubcommand());
+            var deploymentsCommand = new Command("deployments", "Work with deployments")
+            {
+                CreateCreateSubcommand(),
+                CreateListSubcommand(),
+            };
 
             return deploymentsCommand;
         }
@@ -66,7 +68,7 @@ namespace Elmah.Io.Cli
             {
                 apiKeyOption, versionOption, createdOption, descriptionOption, userNameOption, userEmailOption, logIdOption, proxyHostOption, proxyPortOption
             };
-            createSubcommand.SetAction(async (ParseResult result) =>
+            createSubcommand.SetAction(async result =>
             {
                 var apiKey = result.GetValue(apiKeyOption);
                 var version = result.GetValue(versionOption);
@@ -96,7 +98,7 @@ namespace Elmah.Io.Cli
             {
                 apiKeyOption, logIdOption, countOption, jsonOption, proxyHostOption, proxyPortOption
             };
-            listSubcommand.SetAction(async (ParseResult result) =>
+            listSubcommand.SetAction(async result =>
             {
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);
@@ -110,54 +112,54 @@ namespace Elmah.Io.Cli
                 var api = Api(resolvedKey, host, port);
                 try
                 {
+                    ICollection<Client.Deployment>? deployments = null;
                     await AnsiConsole
                         .Status()
                         .Spinner(new BugShotSpinner())
                         .StartAsync("Fetching deployments...", async ctx =>
                         {
-                            var deployments = await api.Deployments.GetAllAsync();
-                            if (deployments == null || deployments.Count == 0)
-                            {
-                                if (json) Console.WriteLine("[]");
-                                else AnsiConsole.MarkupLine("[yellow]No deployments found[/]");
-                                return;
-                            }
-
-                            var filtered = deployments.AsEnumerable();
-                            if (logId.HasValue)
-                                filtered = filtered.Where(d => d.LogId == logId.Value.ToString());
-
-                            var results = filtered.Take(Math.Clamp(count, 1, 25)).ToList();
-
-                            ctx.Refresh();
-
-                            if (json)
-                            {
-                                Console.WriteLine(JsonConvert.SerializeObject(results, Formatting.Indented));
-                                return;
-                            }
-
-                            var table = new Table { Expand = true };
-                            table.Border(TableBorder.Rounded).BorderColor(Color.Grey);
-                            table.AddColumn("ID");
-                            table.AddColumn("Version");
-                            table.AddColumn("Created");
-                            table.AddColumn("Created By");
-                            table.AddColumn("Description");
-
-                            foreach (var d in results)
-                            {
-                                table.AddRow(
-                                    Markup.Escape(d.Id ?? ""),
-                                    $"[#0da58e]{Markup.Escape(d.Version ?? "")}[/]",
-                                    $"[dim]{d.Created?.ToLocalTime().ToString(CultureInfo.CurrentCulture) ?? ""}[/]",
-                                    Markup.Escape(d.UserName ?? d.CreatedBy ?? ""),
-                                    Markup.Escape(d.Description ?? "")
-                                );
-                            }
-
-                            AnsiConsole.Write(table);
+                            deployments = await api.Deployments.GetAllAsync();
                         });
+
+                    if (deployments == null || deployments.Count == 0)
+                    {
+                        if (json) AnsiConsole.Write(new JsonText("[]"));
+                        else AnsiConsole.MarkupLine("[yellow]No deployments found[/]");
+                        return;
+                    }
+
+                    var filtered = deployments.AsEnumerable();
+                    if (logId.HasValue)
+                        filtered = filtered.Where(d => d.LogId == logId.Value.ToString());
+
+                    var results = filtered.Take(Math.Clamp(count, 1, 25)).ToList();
+
+                    if (json)
+                    {
+                        AnsiConsole.Write(new JsonText(JsonConvert.SerializeObject(results, Formatting.Indented)));
+                        return;
+                    }
+
+                    var table = new Table { Expand = true };
+                    table.Border(TableBorder.Rounded).BorderColor(Color.Grey);
+                    table.AddColumn("ID");
+                    table.AddColumn("Version");
+                    table.AddColumn("Created");
+                    table.AddColumn("Created By");
+                    table.AddColumn("Description");
+
+                    foreach (var d in results)
+                    {
+                        table.AddRow(
+                            Markup.Escape(d.Id ?? ""),
+                            $"[#0da58e]{Markup.Escape(d.Version ?? "")}[/]",
+                            $"[dim]{d.Created?.ToLocalTime().ToString(CultureInfo.CurrentCulture) ?? ""}[/]",
+                            Markup.Escape(d.UserName ?? d.CreatedBy ?? ""),
+                            Markup.Escape(d.Description ?? "")
+                        );
+                    }
+
+                    AnsiConsole.Write(table);
                 }
                 catch (Exception e)
                 {

@@ -19,7 +19,7 @@ namespace Elmah.Io.Cli
                 directoryOption,
                 verboseOption,
             };
-            diagnoseCommand.SetAction((ParseResult result) =>
+            diagnoseCommand.SetAction(result =>
             {
                 var directory = result.GetValue(directoryOption);
                 var verbose = result.GetValue(verboseOption);

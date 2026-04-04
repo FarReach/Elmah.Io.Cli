@@ -9,12 +9,12 @@
     <ApplicationIcon>..\..\logo.ico</ApplicationIcon>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>14.0</LangVersion>
     <!-- NuGet package -->
     <Description>A CLI to execute common tasks against elmah.io.</Description>
     <Authors>elmah.io</Authors>
     <PackageId>Elmah.Io.Cli</PackageId>
     <PackageTags>Error;Exception;Reporting;Management;Logging;ELMAH;Diagnostics;Tracing</PackageTags>
-    <PackageIconUrl>https://secure.gravatar.com/avatar/5c4cb3646528821117abde6d2d5ee22d?s=64</PackageIconUrl>
     <PackageIcon>icon.png</PackageIcon>
     <PackageProjectUrl>https://elmah.io</PackageProjectUrl>
     <RepositoryUrl>https://github.com/elmahio/Elmah.Io.Cli</RepositoryUrl>
@@ -32,7 +32,8 @@
     <PackageReference Include="Elmah.Io.Client" Version="5.3.131" />
     <PackageReference Include="GuerrillaNtp" Version="3.1.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageReference Include="Spectre.Console" Version="0.54.0" />
+    <PackageReference Include="Spectre.Console" Version="0.55.0" />
+    <PackageReference Include="Spectre.Console.Json" Version="0.55.0" />
     <PackageReference Include="System.CommandLine" Version="2.0.5" />
     <PackageReference Include="Tx.Windows" Version="3.0.6" />
   </ItemGroup>

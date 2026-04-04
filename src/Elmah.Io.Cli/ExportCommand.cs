@@ -34,14 +34,14 @@ namespace Elmah.Io.Cli
             var formatOption = new Option<ExportFormat>("--format") { Description = "The format to export", DefaultValueFactory = _ => ExportFormat.Json };
             var proxyHostOption = ProxyHostOption();
             var proxyPortOption = ProxyPortOption();
-            var exportCommand = new Command("export", "Export log messages from a specified log")
+            var exportCommand = new Command("export", $"{(deprecated ? "(deprecated) " : "")}Export log messages from a specified log")
             {
                 apiKeyOption, logIdOption, dateFromOption, dateToOption, filenameOption, queryOption, includeHeadersOption, formatOption, proxyHostOption, proxyPortOption
             };
-            exportCommand.SetAction(async (ParseResult result) =>
+            exportCommand.SetAction(async result =>
             {
                 if (deprecated)
-                    AnsiConsole.MarkupLine("[yellow]Warning:[/] 'elmahio export' is deprecated. Use 'elmahio logs export' instead.");
+                    AnsiConsole.MarkupLine("[yellow]:warning:  Warning:[/] 'elmahio export' is deprecated. Use 'elmahio logs export' instead.");
 
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);

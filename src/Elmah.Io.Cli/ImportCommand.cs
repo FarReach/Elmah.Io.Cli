@@ -37,14 +37,14 @@ namespace Elmah.Io.Cli
             var dateToOption = new Option<DateTimeOffset?>("--dateTo") { Description = $"Defines the Date from which the logs end. Ex. \" --dateTo {today:yyyy-MM-dd}\"" };
             var proxyHostOption = ProxyHostOption();
             var proxyPortOption = ProxyPortOption();
-            var importCommand = new Command("import", "Import log messages to a specified log")
+            var importCommand = new Command("import", $"{(deprecated ? "(deprecated) " : "")}Import log messages to a specified log")
             {
                 apiKeyOption, logIdOption, typeOption, filenameOption, dateFromOption, dateToOption, proxyHostOption, proxyPortOption
             };
-            importCommand.SetAction(async (ParseResult result) =>
+            importCommand.SetAction(async result =>
             {
                 if (deprecated)
-                    AnsiConsole.MarkupLine("[yellow]Warning:[/] 'elmahio import' is deprecated. Use 'elmahio logs import' instead.");
+                    AnsiConsole.MarkupLine("[yellow]:warning:  Warning:[/] 'elmahio import' is deprecated. Use 'elmahio logs import' instead.");
 
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);

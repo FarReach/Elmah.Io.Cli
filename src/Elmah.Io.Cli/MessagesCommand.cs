@@ -1,5 +1,7 @@
+using Elmah.Io.Client;
 using Newtonsoft.Json;
 using Spectre.Console;
+using Spectre.Console.Json;
 using System.CommandLine;
 using System.Globalization;
 
@@ -9,13 +11,14 @@ namespace Elmah.Io.Cli
     {
         internal static Command Create()
         {
-            var messagesCommand = new Command("messages", "Work with log messages");
-
-            messagesCommand.Add(CreateCountSubcommand());
-            messagesCommand.Add(CreateGetSubcommand());
-            messagesCommand.Add(CreateListRecentSubcommand());
-            messagesCommand.Add(CreateListFrequentSubcommand());
-            messagesCommand.Add(LogCommand.CreateSubcommand());
+            var messagesCommand = new Command("messages", "Work with log messages")
+            {
+                CreateCountSubcommand(),
+                CreateGetSubcommand(),
+                CreateListFrequentSubcommand(),
+                CreateListRecentSubcommand(),
+                LogCommand.CreateSubcommand(),
+            };
 
             return messagesCommand;
         }
@@ -34,7 +37,7 @@ namespace Elmah.Io.Cli
             {
                 apiKeyOption, logIdOption, queryOption, severityOption, fromOption, jsonOption, proxyHostOption, proxyPortOption
             };
-            countSubcommand.SetAction(async (ParseResult result) =>
+            countSubcommand.SetAction(async result =>
             {
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);
@@ -50,6 +53,7 @@ namespace Elmah.Io.Cli
                 var api = Api(resolvedKey, host, port);
                 try
                 {
+                    Client.MessagesResult? countResult = null;
                     await AnsiConsole
                         .Status()
                         .Spinner(new BugShotSpinner())
@@ -57,16 +61,15 @@ namespace Elmah.Io.Cli
                         {
                             var effectiveFrom = from ?? DateTimeOffset.UtcNow.AddDays(-90);
                             var effectiveQuery = BuildQuery(query, severity);
-                            var countResult = await api.Messages.GetAllAsync(logId.ToString(), 0, 0, effectiveQuery, effectiveFrom, null, false);
-                            var total = countResult?.Total ?? 0;
-
-                            ctx.Refresh();
-
-                            if (json)
-                                Console.WriteLine(JsonConvert.SerializeObject(new { total }, Formatting.Indented));
-                            else
-                                AnsiConsole.MarkupLine($"[#0da58e]Total messages:[/] [bold]{total}[/]");
+                            countResult = await api.Messages.GetAllAsync(logId.ToString(), 0, 0, effectiveQuery, effectiveFrom, null, false);
                         });
+
+                    var total = countResult?.Total ?? 0;
+
+                    if (json)
+                        AnsiConsole.Write(new JsonText(JsonConvert.SerializeObject(new { total }, Formatting.Indented)));
+                    else
+                        AnsiConsole.MarkupLine($"[#0da58e]Total messages:[/] [bold]{total}[/]");
                 }
                 catch (Exception e)
                 {
@@ -89,7 +92,7 @@ namespace Elmah.Io.Cli
             {
                 apiKeyOption, logIdOption, messageIdOption, jsonOption, proxyHostOption, proxyPortOption
             };
-            getSubcommand.SetAction(async (ParseResult result) =>
+            getSubcommand.SetAction(async result =>
             {
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);
@@ -103,66 +106,65 @@ namespace Elmah.Io.Cli
                 var api = Api(resolvedKey, host, port);
                 try
                 {
+                    Client.Message? msg = null;
                     await AnsiConsole
                         .Status()
                         .Spinner(new BugShotSpinner())
                         .StartAsync("Fetching message...", async ctx =>
                         {
-                            var msg = await api.Messages.GetAsync(logId.ToString(), messageId);
-                            if (msg == null)
-                            {
-                                if (json) Console.WriteLine("null");
-                                else AnsiConsole.MarkupLine("[yellow]Message not found[/]");
-                                return;
-                            }
-
-                            ctx.Refresh();
-
-                            if (json)
-                            {
-                                Console.WriteLine(JsonConvert.SerializeObject(msg, Formatting.Indented));
-                                return;
-                            }
-
-                            var grid = new Grid();
-                            grid.AddColumn(new GridColumn().NoWrap());
-                            grid.AddColumn();
-
-                            grid.AddRow("[bold]ID[/]", Markup.Escape(msg.Id ?? ""));
-                            grid.AddRow("[bold]Title[/]", $"[#0da58e]{Markup.Escape(msg.Title ?? "")}[/]");
-                            grid.AddRow("[bold]Severity[/]", GetColoredSeverity(msg.Severity));
-                            grid.AddRow("[bold]DateTime[/]", $"[dim]{msg.DateTime?.ToLocalTime().ToString(CultureInfo.CurrentCulture) ?? ""}[/]");
-                            if (!string.IsNullOrWhiteSpace(msg.Type))
-                                grid.AddRow("[bold]Type[/]", Markup.Escape(msg.Type));
-                            if (!string.IsNullOrWhiteSpace(msg.Source))
-                                grid.AddRow("[bold]Source[/]", Markup.Escape(msg.Source));
-                            if (msg.StatusCode.HasValue)
-                                grid.AddRow("[bold]Status Code[/]", msg.StatusCode.Value.ToString());
-                            if (!string.IsNullOrWhiteSpace(msg.Url))
-                                grid.AddRow("[bold]URL[/]", Markup.Escape(msg.Url));
-                            if (!string.IsNullOrWhiteSpace(msg.Method))
-                                grid.AddRow("[bold]Method[/]", Markup.Escape(msg.Method));
-                            if (!string.IsNullOrWhiteSpace(msg.Hostname))
-                                grid.AddRow("[bold]Hostname[/]", Markup.Escape(msg.Hostname));
-                            if (!string.IsNullOrWhiteSpace(msg.User))
-                                grid.AddRow("[bold]User[/]", Markup.Escape(msg.User));
-                            if (!string.IsNullOrWhiteSpace(msg.Application))
-                                grid.AddRow("[bold]Application[/]", Markup.Escape(msg.Application));
-                            if (!string.IsNullOrWhiteSpace(msg.Version))
-                                grid.AddRow("[bold]Version[/]", Markup.Escape(msg.Version));
-                            if (!string.IsNullOrWhiteSpace(msg.CorrelationId))
-                                grid.AddRow("[bold]Correlation ID[/]", Markup.Escape(msg.CorrelationId));
-                            if (!string.IsNullOrWhiteSpace(msg.Detail))
-                            {
-                                grid.AddRow("[bold]Detail[/]", "");
-                                AnsiConsole.Write(grid);
-                                AnsiConsole.WriteLine();
-                                AnsiConsole.Write(new Panel(Markup.Escape(msg.Detail)).Header("Detail").BorderColor(Color.Grey));
-                                return;
-                            }
-
-                            AnsiConsole.Write(grid);
+                            msg = await api.Messages.GetAsync(messageId, logId.ToString());
                         });
+
+                    if (msg == null)
+                    {
+                        if (json) AnsiConsole.Write(new JsonText("{}"));
+                        else AnsiConsole.MarkupLine("[yellow]Message not found[/]");
+                        return;
+                    }
+
+                    if (json)
+                    {
+                        AnsiConsole.Write(new JsonText(JsonConvert.SerializeObject(msg, Formatting.Indented)));
+                        return;
+                    }
+
+                    var grid = new Grid();
+                    grid.AddColumn(new GridColumn().NoWrap());
+                    grid.AddColumn();
+
+                    grid.AddRow("[bold]ID[/]", Markup.Escape(msg.Id ?? ""));
+                    grid.AddRow("[bold]Title[/]", Markup.Escape(msg.Title ?? ""));
+                    grid.AddRow("[bold]Severity[/]", GetColoredSeverity(msg.Severity));
+                    grid.AddRow("[bold]DateTime[/]", $"[dim]{msg.DateTime?.ToLocalTime().ToString(CultureInfo.CurrentCulture) ?? ""}[/]");
+                    if (!string.IsNullOrWhiteSpace(msg.Type))
+                        grid.AddRow("[bold]Type[/]", Markup.Escape(msg.Type));
+                    if (!string.IsNullOrWhiteSpace(msg.Source))
+                        grid.AddRow("[bold]Source[/]", Markup.Escape(msg.Source));
+                    if (msg.StatusCode.HasValue)
+                        grid.AddRow("[bold]Status Code[/]", msg.StatusCode.Value.ToString());
+                    if (!string.IsNullOrWhiteSpace(msg.Url))
+                        grid.AddRow("[bold]URL[/]", Markup.Escape(msg.Url));
+                    if (!string.IsNullOrWhiteSpace(msg.Method))
+                        grid.AddRow("[bold]Method[/]", Markup.Escape(msg.Method));
+                    if (!string.IsNullOrWhiteSpace(msg.Hostname))
+                        grid.AddRow("[bold]Hostname[/]", Markup.Escape(msg.Hostname));
+                    if (!string.IsNullOrWhiteSpace(msg.User))
+                        grid.AddRow("[bold]User[/]", Markup.Escape(msg.User));
+                    if (!string.IsNullOrWhiteSpace(msg.Application))
+                        grid.AddRow("[bold]Application[/]", Markup.Escape(msg.Application));
+                    if (!string.IsNullOrWhiteSpace(msg.Version))
+                        grid.AddRow("[bold]Version[/]", Markup.Escape(msg.Version));
+                    if (!string.IsNullOrWhiteSpace(msg.CorrelationId))
+                        grid.AddRow("[bold]Correlation ID[/]", Markup.Escape(msg.CorrelationId));
+                    if (!string.IsNullOrWhiteSpace(msg.Detail))
+                    {
+                        AnsiConsole.Write(grid);
+                        AnsiConsole.WriteLine();
+                        AnsiConsole.Write(new Panel(Markup.Escape(msg.Detail)).Header("Detail").BorderColor(Color.Grey));
+                        return;
+                    }
+
+                    AnsiConsole.Write(grid);
                 }
                 catch (Exception e)
                 {
@@ -189,7 +191,7 @@ namespace Elmah.Io.Cli
             {
                 apiKeyOption, logIdOption, countOption, queryOption, severityOption, fromOption, toOption, jsonOption, proxyHostOption, proxyPortOption
             };
-            listRecentSubcommand.SetAction(async (ParseResult result) =>
+            listRecentSubcommand.SetAction(async result =>
             {
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);
@@ -207,50 +209,49 @@ namespace Elmah.Io.Cli
                 var api = Api(resolvedKey, host, port);
                 try
                 {
+                    Client.MessagesResult? listResult = null;
+                    var effectiveCount = Math.Clamp(count, 1, 100);
+                    var effectiveQuery = BuildQuery(query, severity);
                     await AnsiConsole
                         .Status()
                         .Spinner(new BugShotSpinner())
                         .StartAsync("Fetching messages...", async ctx =>
                         {
-                            var effectiveCount = Math.Clamp(count, 1, 100);
-                            var effectiveQuery = BuildQuery(query, severity);
-                            var listResult = await api.Messages.GetAllAsync(logId.ToString(), 0, effectiveCount, effectiveQuery, from, to, false);
-
-                            if (listResult == null || listResult.Messages == null || listResult.Messages.Count == 0)
-                            {
-                                if (json) Console.WriteLine("[]");
-                                else AnsiConsole.MarkupLine("[yellow]No messages found[/]");
-                                return;
-                            }
-
-                            ctx.Refresh();
-
-                            if (json)
-                            {
-                                Console.WriteLine(JsonConvert.SerializeObject(new { total = listResult.Total, messages = listResult.Messages }, Formatting.Indented));
-                                return;
-                            }
-
-                            var table = new Table { Expand = true };
-                            table.Border(TableBorder.Rounded).BorderColor(Color.Grey);
-                            table.AddColumn("DateTime");
-                            table.AddColumn("Severity");
-                            table.AddColumn("Title");
-                            table.AddColumn("Source");
-
-                            foreach (var msg in listResult.Messages)
-                            {
-                                table.AddRow(
-                                    $"[dim]{msg.DateTime?.ToLocalTime().ToString(CultureInfo.CurrentCulture) ?? ""}[/]",
-                                    GetColoredSeverity(msg.Severity),
-                                    Markup.Escape(msg.Title ?? "(no title)"),
-                                    Markup.Escape(msg.Source ?? "")
-                                );
-                            }
-
-                            AnsiConsole.MarkupLine($"[dim]Showing {listResult.Messages.Count} of {listResult.Total} messages[/]");
-                            AnsiConsole.Write(table);
+                            listResult = await api.Messages.GetAllAsync(logId.ToString(), 0, effectiveCount, effectiveQuery, from, to, false);
                         });
+
+                    if (listResult == null || listResult.Messages == null || listResult.Messages.Count == 0)
+                    {
+                        if (json) AnsiConsole.Write(new JsonText("[]"));
+                        else AnsiConsole.MarkupLine("[yellow]No messages found[/]");
+                        return;
+                    }
+
+                    if (json)
+                    {
+                        AnsiConsole.Write(new JsonText(JsonConvert.SerializeObject(new { total = listResult.Total, messages = listResult.Messages }, Formatting.Indented)));
+                        return;
+                    }
+
+                    var table = new Table { Expand = true };
+                    table.Border(TableBorder.Rounded).BorderColor(Color.Grey);
+                    table.AddColumn("DateTime");
+                    table.AddColumn("Severity");
+                    table.AddColumn("Title");
+                    table.AddColumn("Source");
+
+                    foreach (var msg in listResult.Messages)
+                    {
+                        table.AddRow(
+                            $"[dim]{msg.DateTime?.ToLocalTime().ToString(CultureInfo.CurrentCulture) ?? ""}[/]",
+                            GetColoredSeverity(msg.Severity),
+                            Markup.Escape(msg.Title ?? "(no title)"),
+                            Markup.Escape(msg.Source ?? "")
+                        );
+                    }
+
+                    AnsiConsole.MarkupLine($"[dim]Showing {listResult.Messages.Count} of {listResult.Total} messages[/]");
+                    AnsiConsole.Write(table);
                 }
                 catch (Exception e)
                 {
@@ -277,7 +278,7 @@ namespace Elmah.Io.Cli
             {
                 apiKeyOption, logIdOption, countOption, queryOption, severityOption, fromOption, toOption, jsonOption, proxyHostOption, proxyPortOption
             };
-            listFrequentSubcommand.SetAction(async (ParseResult result) =>
+            listFrequentSubcommand.SetAction(async result =>
             {
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);
@@ -295,58 +296,77 @@ namespace Elmah.Io.Cli
                 var api = Api(resolvedKey, host, port);
                 try
                 {
+                    var effectiveCount = Math.Clamp(count, 1, 25);
+                    var effectiveQuery = BuildQuery(query, severity);
+                    var effectiveFrom = from ?? DateTimeOffset.UtcNow.AddDays(-90);
+                    var allMessages = new List<MessageOverview>();
+                    string? nextSearchAfter = null;
+                    int maxPages = 10;
+                    int pageSize = 100;
                     await AnsiConsole
                         .Status()
                         .Spinner(new BugShotSpinner())
                         .StartAsync("Fetching frequent messages...", async ctx =>
                         {
-                            var effectiveCount = Math.Clamp(count, 1, 25);
-                            var effectiveQuery = BuildQuery(query, severity);
-                            var effectiveFrom = from ?? DateTimeOffset.UtcNow.AddDays(-30);
-
-                            var freqResult = await api.Messages.GetAllAsync(logId.ToString(), 0, 200, effectiveQuery, effectiveFrom, to, false);
-
-                            if (freqResult == null || freqResult.Messages == null || freqResult.Messages.Count == 0)
+                            for (int i = 0; i < maxPages; i++)
                             {
-                                if (json) Console.WriteLine("[]");
-                                else AnsiConsole.MarkupLine("[yellow]No messages found[/]");
-                                return;
-                            }
-
-                            var groups = freqResult.Messages
-                                .GroupBy(m => m.TitleTemplate ?? m.Title ?? "(no title)")
-                                .Select(g => new { title = g.Key, count = g.Count(), sample = g.First() })
-                                .OrderByDescending(g => g.count)
-                                .Take(effectiveCount)
-                                .ToList();
-
-                            ctx.Refresh();
-
-                            if (json)
-                            {
-                                Console.WriteLine(JsonConvert.SerializeObject(groups, Formatting.Indented));
-                                return;
-                            }
-
-                            var table = new Table { Expand = true };
-                            table.Border(TableBorder.Rounded).BorderColor(Color.Grey);
-                            table.AddColumn("Count");
-                            table.AddColumn("Severity");
-                            table.AddColumn("Title");
-                            table.AddColumn("Source");
-
-                            foreach (var g in groups)
-                            {
-                                table.AddRow(
-                                    $"[bold]{g.count}[/]",
-                                    GetColoredSeverity(g.sample.Severity),
-                                    Markup.Escape(g.title),
-                                    Markup.Escape(g.sample.Source ?? "")
+                                var result = await api.Messages.GetAllAsync(
+                                    logId: logId.ToString(),
+                                    pageSize: pageSize,
+                                    query: effectiveQuery,
+                                    from: effectiveFrom,
+                                    to: to,
+                                    includeHeaders: false,
+                                    searchAfter: nextSearchAfter
                                 );
-                            }
 
-                            AnsiConsole.Write(table);
+                                if (result.Messages == null || result.Messages.Count == 0) break;
+
+                                allMessages.AddRange(result.Messages);
+                                nextSearchAfter = result.SearchAfter;
+                                if (string.IsNullOrWhiteSpace(nextSearchAfter)) break;
+                            }
                         });
+
+                    if (allMessages == null || allMessages.Count == 0)
+                    {
+                        if (json) AnsiConsole.Write(new JsonText("[]"));
+                        else AnsiConsole.MarkupLine("[yellow]No messages found[/]");
+                        return;
+                    }
+
+                    // Consider exposing Hash on the API to group on hash rather than title.
+                    var groups = allMessages
+                        .GroupBy(m => m.TitleTemplate ?? m.Title ?? "(no title)")
+                        .Select(g => new { title = g.Key, count = g.Count(), sample = g.First() })
+                        .OrderByDescending(g => g.count)
+                        .Take(effectiveCount)
+                        .ToList();
+
+                    if (json)
+                    {
+                        AnsiConsole.Write(new JsonText(JsonConvert.SerializeObject(groups, Formatting.Indented)));
+                        return;
+                    }
+
+                    var table = new Table { Expand = true };
+                    table.Border(TableBorder.Rounded).BorderColor(Color.Grey);
+                    table.AddColumn("Count");
+                    table.AddColumn("Severity");
+                    table.AddColumn("Title");
+                    table.AddColumn("Source");
+
+                    foreach (var g in groups)
+                    {
+                        table.AddRow(
+                            $"[bold]{g.count}[/]",
+                            GetColoredSeverity(g.sample.Severity),
+                            Markup.Escape(g.title),
+                            Markup.Escape(g.sample.Source ?? "")
+                        );
+                    }
+
+                    AnsiConsole.Write(table);
                 }
                 catch (Exception e)
                 {

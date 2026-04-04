@@ -12,12 +12,12 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: 10.0.x
 
     - name: Install dependencies
       run: dotnet restore
@@ -26,16 +26,19 @@ jobs:
       uses: elmahio/github-check-vulnerable-nuget-packages-action@v1
 
     - name: Build win-x64
-      run: dotnet publish src/Elmah.Io.Cli/Elmah.Io.Cli.csproj -c Release --runtime win-x64 --self-contained -o elmahio-win-x64 /p:AssemblyVersion=5.2.${{ github.run_number }}
+      run: dotnet publish src/Elmah.Io.Cli/Elmah.Io.Cli.csproj -c Release --runtime win-x64 --self-contained -o elmahio-win-x64 /p:AssemblyVersion=5.3.${{ github.run_number }}
 
     - name: Build linux-x64
-      run: dotnet publish src/Elmah.Io.Cli/Elmah.Io.Cli.csproj -c Release --runtime linux-x64 --self-contained -o elmahio-linux-x64 /p:AssemblyVersion=5.2.${{ github.run_number }}
+      run: dotnet publish src/Elmah.Io.Cli/Elmah.Io.Cli.csproj -c Release --runtime linux-x64 --self-contained -o elmahio-linux-x64 /p:AssemblyVersion=5.3.${{ github.run_number }}
 
     - name: Build osx-x64
-      run: dotnet publish src/Elmah.Io.Cli/Elmah.Io.Cli.csproj -c Release --runtime osx-x64 --self-contained -o elmahio-osx-x64 /p:AssemblyVersion=5.2.${{ github.run_number }}
+      run: dotnet publish src/Elmah.Io.Cli/Elmah.Io.Cli.csproj -c Release --runtime osx-x64 --self-contained -o elmahio-osx-x64 /p:AssemblyVersion=5.3.${{ github.run_number }}
+
+    - name: Build osx-arm64
+      run: dotnet publish src/Elmah.Io.Cli/Elmah.Io.Cli.csproj -c Release --runtime osx-arm64 --self-contained -o elmahio-osx-arm64 /p:AssemblyVersion=5.3.${{ github.run_number }}
 
     - name: Pack .NET Core tool
-      run: dotnet pack -c Release src/Elmah.Io.Cli/Elmah.Io.Cli.csproj /p:Version=5.2.${{ github.run_number }}
+      run: dotnet pack -c Release src/Elmah.Io.Cli/Elmah.Io.Cli.csproj /p:Version=5.3.${{ github.run_number }}
 
     - name: Pack executables
       shell: bash
@@ -43,9 +46,11 @@ jobs:
         7z a -tzip "./artifacts/elmahio-win-x64.zip" "./elmahio-win-x64/*"
         tar czvf "./artifacts/elmahio-linux-x64.tar.gz" "elmahio-linux-x64"
         tar czvf "./artifacts/elmahio-osx-x64.tar.gz" "elmahio-osx-x64"
+        tar czvf "./artifacts/elmahio-osx-arm64.tar.gz" "elmahio-osx-arm64"
         rm -r "elmahio-win-x64"
         rm -r "elmahio-linux-x64"
         rm -r "elmahio-osx-x64"
+        rm -r "elmahio-osx-arm64"
 
     - name: Create Release
       if: ${{ github.event_name == 'push' }}
@@ -55,13 +60,14 @@ jobs:
           ./artifacts/elmahio-win-x64.zip
           ./artifacts/elmahio-linux-x64.tar.gz
           ./artifacts/elmahio-osx-x64.tar.gz
-        tag_name: 5.2.${{ github.run_number }}
-        name: 5.2.${{ github.run_number }}
+          ./artifacts/elmahio-osx-arm64.tar.gz
+        tag_name: 5.3.${{ github.run_number }}
+        name: 5.3.${{ github.run_number }}
         draft: false
         fail_on_unmatched_files: true
         generate_release_notes: true
         token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Push to nuget.org
-      run: dotnet nuget push src/Elmah.Io.Cli/nupkg/Elmah.Io.Cli.5.2.${{ github.run_number }}.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+      run: dotnet nuget push src/Elmah.Io.Cli/nupkg/Elmah.Io.Cli.5.3.${{ github.run_number }}.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
       if: ${{ github.event_name == 'push' }}

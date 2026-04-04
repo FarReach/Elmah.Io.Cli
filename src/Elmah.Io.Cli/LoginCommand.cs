@@ -14,7 +14,7 @@ namespace Elmah.Io.Cli
             {
                 apiKeyOption, proxyHostOption, proxyPortOption
             };
-            loginCommand.SetAction(async (ParseResult result) =>
+            loginCommand.SetAction(async result =>
             {
                 var apiKey = result.GetValue(apiKeyOption);
                 var host = result.GetValue(proxyHostOption);

@@ -32,14 +32,14 @@ namespace Elmah.Io.Cli
             var logIdOption = new Option<Guid>("--logId") { Description = "The log ID of the log to import messages into", Required = true };
             var proxyHostOption = ProxyHostOption();
             var proxyPortOption = ProxyPortOption();
-            var dataloaderCommand = new Command("dataloader", "Load 50 log messages into the specified log")
+            var dataloaderCommand = new Command("dataloader", $"{(deprecated ? "(deprecated) " : "")}Load 50 log messages into the specified log")
             {
                 apiKeyOption, logIdOption, proxyHostOption, proxyPortOption
             };
-            dataloaderCommand.SetAction(async (ParseResult result) =>
+            dataloaderCommand.SetAction(async result =>
             {
                 if (deprecated)
-                    AnsiConsole.MarkupLine("[yellow]Warning:[/] 'elmahio dataloader' is deprecated. Use 'elmahio logs dataloader' instead.");
+                    AnsiConsole.MarkupLine("[yellow]:light_bulb:  Warning:[/] 'elmahio dataloader' is deprecated. Use 'elmahio logs dataloader' instead.");
 
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);

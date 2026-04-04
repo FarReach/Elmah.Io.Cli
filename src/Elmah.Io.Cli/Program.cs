@@ -9,23 +9,27 @@ namespace Elmah.Io.Cli
         {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-            var rootCommand = new RootCommand("CLI for executing various actions against elmah.io");
-            rootCommand.Add(new Option<bool>("--nologo") { Description = "Doesn't display the startup banner or the copyright message" });
-
-            rootCommand.Add(ClearCommand.Create());
-            rootCommand.Add(DataloaderCommand.Create());
-            rootCommand.Add(DeploymentCommand.Create());
-            rootCommand.Add(LoginCommand.Create());
-            rootCommand.Add(LogoutCommand.Create());
-            rootCommand.Add(DeploymentsCommand.Create());
-            rootCommand.Add(DiagnoseCommand.Create());
-            rootCommand.Add(ExportCommand.Create());
-            rootCommand.Add(ImportCommand.Create());
-            rootCommand.Add(LogCommand.Create());
-            rootCommand.Add(LogsCommand.Create());
-            rootCommand.Add(MessagesCommand.Create());
-            rootCommand.Add(SourceMapCommand.Create());
-            rootCommand.Add(TailCommand.Create());
+            var rootCommand = new RootCommand("CLI for executing various actions against elmah.io")
+            {
+                // Options
+                new Option<bool>("--nologo") { Description = "Doesn't display the startup banner or the copyright message" },
+                // Commands
+                LoginCommand.Create(),
+                LogoutCommand.Create(),
+                DeploymentsCommand.Create(),
+                DiagnoseCommand.Create(),
+                LogsCommand.Create(),
+                MessagesCommand.Create(),
+                // Deprecated commands
+                ClearCommand.Create(),
+                DataloaderCommand.Create(),
+                DeploymentCommand.Create(),
+                ExportCommand.Create(),
+                ImportCommand.Create(),
+                LogCommand.Create(),
+                SourceMapCommand.Create(),
+                TailCommand.Create()
+            };
 
             if (args == null || args.ToList().TrueForAll(arg => arg != "--nologo" && arg != "--json"))
             {

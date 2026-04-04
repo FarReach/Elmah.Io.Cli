@@ -24,14 +24,14 @@ namespace Elmah.Io.Cli
             var toOption = new Option<DateTimeOffset?>("--to") { Description = "Optional date and time to clear messages to" };
             var proxyHostOption = ProxyHostOption();
             var proxyPortOption = ProxyPortOption();
-            var clearCommand = new Command("clear", "Delete one or more messages from a log")
+            var clearCommand = new Command("clear", $"{(deprecated ? "(deprecated) " : "")}Delete one or more messages from a log")
             {
                 apiKeyOption, logIdOption, queryOption, fromOption, toOption, proxyHostOption, proxyPortOption
             };
-            clearCommand.SetAction(async (ParseResult result) =>
+            clearCommand.SetAction(async result =>
             {
                 if (deprecated)
-                    AnsiConsole.MarkupLine("[yellow]Warning:[/] 'elmahio clear' is deprecated. Use 'elmahio logs clear' instead.");
+                    AnsiConsole.MarkupLine("[yellow]:warning:  Warning:[/] 'elmahio clear' is deprecated. Use 'elmahio logs clear' instead.");
 
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);

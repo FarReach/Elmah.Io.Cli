@@ -16,13 +16,13 @@ namespace Elmah.Io.Cli
             var logIdOption = new Option<Guid?>("--logId") { Description = "The ID of a log if this deployment is specific to a single log" };
             var proxyHostOption = ProxyHostOption();
             var proxyPortOption = ProxyPortOption();
-            var deploymentCommand = new Command("deployment", "Create a new deployment")
+            var deploymentCommand = new Command("deployment", "(deprecated) Create a new deployment")
             {
                 apiKeyOption, versionOption, createdOption, descriptionOption, userNameOption, userEmailOption, logIdOption, proxyHostOption, proxyPortOption
             };
-            deploymentCommand.SetAction(async (ParseResult result) =>
+            deploymentCommand.SetAction(async result =>
             {
-                AnsiConsole.MarkupLine("[yellow]Warning:[/] 'elmahio deployment' is deprecated. Use 'elmahio deployments create' instead.");
+                AnsiConsole.MarkupLine("[yellow]:warning:  Warning:[/] 'elmahio deployment' is deprecated. Use 'elmahio deployments create' instead.");
 
                 var apiKey = result.GetValue(apiKeyOption);
                 var version = result.GetValue(versionOption);

@@ -1,5 +1,6 @@
 using Newtonsoft.Json;
 using Spectre.Console;
+using Spectre.Console.Json;
 using System.CommandLine;
 
 namespace Elmah.Io.Cli
@@ -8,16 +9,17 @@ namespace Elmah.Io.Cli
     {
         internal static Command Create()
         {
-            var logsCommand = new Command("logs", "Work with logs");
-
-            logsCommand.Add(CreateListSubcommand());
-            logsCommand.Add(CreateGetSubcommand());
-            logsCommand.Add(ClearCommand.CreateSubcommand());
-            logsCommand.Add(DataloaderCommand.CreateSubcommand());
-            logsCommand.Add(ExportCommand.CreateSubcommand());
-            logsCommand.Add(ImportCommand.CreateSubcommand());
-            logsCommand.Add(SourceMapCommand.CreateSubcommand());
-            logsCommand.Add(TailCommand.CreateSubcommand());
+            var logsCommand = new Command("logs", "Work with logs")
+            {
+                ClearCommand.CreateSubcommand(),
+                DataloaderCommand.CreateSubcommand(),
+                ExportCommand.CreateSubcommand(),
+                CreateGetSubcommand(),
+                ImportCommand.CreateSubcommand(),
+                CreateListSubcommand(),
+                SourceMapCommand.CreateSubcommand(),
+                TailCommand.CreateSubcommand()
+            };
 
             return logsCommand;
         }
@@ -33,7 +35,7 @@ namespace Elmah.Io.Cli
             {
                 apiKeyOption, environmentOption, jsonOption, proxyHostOption, proxyPortOption
             };
-            listSubcommand.SetAction(async (ParseResult result) =>
+            listSubcommand.SetAction(async result =>
             {
                 var apiKey = result.GetValue(apiKeyOption);
                 var environment = result.GetValue(environmentOption);
@@ -46,57 +48,57 @@ namespace Elmah.Io.Cli
                 var api = Api(resolvedKey, host, port);
                 try
                 {
+                    ICollection<Client.Log>? logs = null;
                     await AnsiConsole
                         .Status()
                         .Spinner(new BugShotSpinner())
                         .StartAsync("Fetching logs...", async ctx =>
                         {
-                            var logs = await api.Logs.GetAllAsync();
-                            if (logs == null || logs.Count == 0)
-                            {
-                                if (json) Console.WriteLine("[]");
-                                else AnsiConsole.MarkupLine("[yellow]No logs found[/]");
-                                return;
-                            }
-
-                            var filtered = string.IsNullOrWhiteSpace(environment)
-                                ? logs
-                                : logs.Where(l => string.Equals(l.EnvironmentName, environment, StringComparison.OrdinalIgnoreCase)).ToList();
-
-                            if (filtered.Count == 0)
-                            {
-                                if (json) Console.WriteLine("[]");
-                                else AnsiConsole.MarkupLine($"[yellow]No logs found for environment '[/][#0da58e]{Markup.Escape(environment!)}[/][yellow]'[/]");
-                                return;
-                            }
-
-                            ctx.Refresh();
-
-                            if (json)
-                            {
-                                Console.WriteLine(JsonConvert.SerializeObject(filtered, Formatting.Indented));
-                                return;
-                            }
-
-                            var table = new Table { Expand = true };
-                            table.Border(TableBorder.Rounded).BorderColor(Color.Grey);
-                            table.AddColumn("ID");
-                            table.AddColumn("Name");
-                            table.AddColumn("Environment");
-                            table.AddColumn("Disabled");
-
-                            foreach (var log in filtered)
-                            {
-                                table.AddRow(
-                                    Markup.Escape(log.Id ?? ""),
-                                    $"[#0da58e]{Markup.Escape(log.Name ?? "")}[/]",
-                                    Markup.Escape(log.EnvironmentName ?? ""),
-                                    log.Disabled == true ? "[red]Yes[/]" : "[green]No[/]"
-                                );
-                            }
-
-                            AnsiConsole.Write(table);
+                            logs = await api.Logs.GetAllAsync();
                         });
+
+                    if (logs == null || logs.Count == 0)
+                    {
+                        if (json) AnsiConsole.Write(new JsonText("[]"));
+                        else AnsiConsole.MarkupLine("[yellow]No logs found[/]");
+                        return;
+                    }
+
+                    var filtered = string.IsNullOrWhiteSpace(environment)
+                        ? logs
+                        : [.. logs.Where(l => string.Equals(l.EnvironmentName, environment, StringComparison.OrdinalIgnoreCase))];
+
+                    if (filtered.Count == 0)
+                    {
+                        if (json) AnsiConsole.Write(new JsonText("[]"));
+                        else AnsiConsole.MarkupLine($"[yellow]No logs found for environment '[/][#0da58e]{Markup.Escape(environment!)}[/][yellow]'[/]");
+                        return;
+                    }
+
+                    if (json)
+                    {
+                        AnsiConsole.Write(new JsonText(JsonConvert.SerializeObject(filtered, Formatting.Indented)));
+                        return;
+                    }
+
+                    var table = new Table { Expand = true };
+                    table.Border(TableBorder.Rounded).BorderColor(Color.Grey);
+                    table.AddColumn("ID");
+                    table.AddColumn("Name");
+                    table.AddColumn("Environment");
+                    table.AddColumn("Disabled");
+
+                    foreach (var log in filtered)
+                    {
+                        table.AddRow(
+                            Markup.Escape(log.Id ?? ""),
+                            Markup.Escape(log.Name ?? ""),
+                            Markup.Escape(log.EnvironmentName ?? ""),
+                            log.Disabled == true ? "[red]Yes[/]" : "[green]No[/]"
+                        );
+                    }
+
+                    AnsiConsole.Write(table);
                 }
                 catch (Exception e)
                 {
@@ -118,7 +120,7 @@ namespace Elmah.Io.Cli
             {
                 apiKeyOption, logIdOption, jsonOption, proxyHostOption, proxyPortOption
             };
-            getSubcommand.SetAction(async (ParseResult result) =>
+            getSubcommand.SetAction(async result =>
             {
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);
@@ -131,39 +133,39 @@ namespace Elmah.Io.Cli
                 var api = Api(resolvedKey, host, port);
                 try
                 {
+                    Client.Log? log = null;
                     await AnsiConsole
                         .Status()
                         .Spinner(new BugShotSpinner())
                         .StartAsync("Fetching log...", async ctx =>
                         {
-                            var log = await api.Logs.GetAsync(logId.ToString());
-                            if (log == null)
-                            {
-                                if (json) Console.WriteLine("null");
-                                else AnsiConsole.MarkupLine("[yellow]Log not found[/]");
-                                return;
-                            }
-
-                            ctx.Refresh();
-
-                            if (json)
-                            {
-                                Console.WriteLine(JsonConvert.SerializeObject(log, Formatting.Indented));
-                                return;
-                            }
-
-                            var grid = new Grid();
-                            grid.AddColumn(new GridColumn().NoWrap());
-                            grid.AddColumn();
-
-                            grid.AddRow("[bold]ID[/]", Markup.Escape(log.Id ?? ""));
-                            grid.AddRow("[bold]Name[/]", $"[#0da58e]{Markup.Escape(log.Name ?? "")}[/]");
-                            grid.AddRow("[bold]Environment[/]", Markup.Escape(log.EnvironmentName ?? ""));
-                            grid.AddRow("[bold]Disabled[/]", log.Disabled == true ? "[red]Yes[/]" : "[green]No[/]");
-                            grid.AddRow("[bold]Color[/]", Markup.Escape(log.Color ?? ""));
-
-                            AnsiConsole.Write(grid);
+                            log = await api.Logs.GetAsync(logId.ToString());
                         });
+
+                    if (log == null)
+                    {
+                        if (json) AnsiConsole.Write(new JsonText("{}"));
+                        else AnsiConsole.MarkupLine("[yellow]Log not found[/]");
+                        return;
+                    }
+
+                    if (json)
+                    {
+                        AnsiConsole.Write(new JsonText(JsonConvert.SerializeObject(log, Formatting.Indented)));
+                        return;
+                    }
+
+                    var grid = new Grid();
+                    grid.AddColumn(new GridColumn().NoWrap());
+                    grid.AddColumn();
+
+                    grid.AddRow("[bold]ID[/]", Markup.Escape(log.Id ?? ""));
+                    grid.AddRow("[bold]Name[/]", Markup.Escape(log.Name ?? ""));
+                    grid.AddRow("[bold]Environment[/]", Markup.Escape(log.EnvironmentName ?? ""));
+                    grid.AddRow("[bold]Disabled[/]", log.Disabled == true ? "[red]Yes[/]" : "[green]No[/]");
+                    grid.AddRow("[bold]Color[/]", $"{GetLogColor(log.Color)}{Markup.Escape(log.Color)}[/]");
+
+                    AnsiConsole.Write(grid);
                 }
                 catch (Exception e)
                 {
@@ -172,6 +174,25 @@ namespace Elmah.Io.Cli
             });
 
             return getSubcommand;
+        }
+
+        private static string GetLogColor(string color)
+        {
+            return color switch
+            {
+                "lightgreen" => "[#8cc152]",
+                "lime" => "[#cdda49]",
+                "yellow" => "[#fdc02f]",
+                "orange" => "[#fd9727]",
+                "deeporange" => "[#fc5830]",
+                "red" => "[#e2202c]",
+                "pink" => "[#e62565]",
+                "purple" => "[#9b2fae]",
+                "deeppurple" => "[#673fb4]",
+                "blue" => "[#4054b2]",
+                "lightblue" => "[#587bf8]",
+                _ => "[#0da58e]",
+            };
         }
     }
 }

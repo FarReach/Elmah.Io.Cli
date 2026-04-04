@@ -31,14 +31,14 @@ namespace Elmah.Io.Cli
             var logIdOption = new Option<Guid>("--logId") { Description = "The ID of the log to send the log message to", Required = true };
             var proxyHostOption = ProxyHostOption();
             var proxyPortOption = ProxyPortOption();
-            var logCommand = new Command("tail", "Tail log messages from a specified log")
+            var logCommand = new Command("tail", $"{(deprecated ? "(deprecated) " : "")}Tail log messages from a specified log")
             {
                 apiKeyOption, logIdOption, proxyHostOption, proxyPortOption
             };
-            logCommand.SetAction(async (ParseResult result) =>
+            logCommand.SetAction(async result =>
             {
                 if (deprecated)
-                    AnsiConsole.MarkupLine("[yellow]Warning:[/] 'elmahio tail' is deprecated. Use 'elmahio logs tail' instead.");
+                    AnsiConsole.MarkupLine("[yellow]:warning:  Warning:[/] 'elmahio tail' is deprecated. Use 'elmahio logs tail' instead.");
 
                 var apiKey = result.GetValue(apiKeyOption);
                 var logId = result.GetValue(logIdOption);
